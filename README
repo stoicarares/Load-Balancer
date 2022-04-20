@@ -1,0 +1,97 @@
+*/ Copyright 2021 <Stoica Rares-Tiberiu> */
+
+Modul de implementare :
+    * Pentru memoria unui SERVER am retinut id-ul, hash-ul intr-o structura
+        de date(server_info) si un hashtable unde vor vi memorate produsele
+        aferente acestuia. Hashtable-ului i-am dat ca functie de hash
+        'hash_function_key' data in scheletul temei, iar ca functie de
+        comparare, pentru string-uri.
+    * Pentru LOAD BALANCER am folosit 
+        -un array de pointeri catre structuri de tip server_memory, pozitia
+            in acesta semnificand id-ul serverului, pentru a stoca produsele
+            in hashtable-ul corespunzator.
+        -o lista simplu inlantuita pentru HASHRING, pentru a avea hashurile
+            ordonate corect, in schimbul unui aray circular, punand in balanta
+            cautarea rapida(binara) in vector si inserarea in O(1) la inceput
+            in cazul listei. Lista contine in noduri structuri de tipul
+            server_info, fiind de ajuns hash-ul pentru comparare si id-ul
+            pentru a sti in ce server se vor duce produsele. Pentru replicile
+            unui server am retinut tot id-ul "tata" in loc de eticheta, aceasta
+            fiind utila doar pentru calcularea hashului acestora.
+
+Implementare functii din "server.c":
+    Pentru toate ce urmeaza, m-am folosit de functii implementate in "Hashtable.c".
+
+    *init_server_memory - initializarea si alocarea memoriei pentru un server.
+                            Crearea hashtable-ului se face cu ajutorul functiei
+                            ht_create.
+    *server_store - stocarea unui element intr-un server reprezinta stocarea
+                        corespunzatoare in hashtable-ul acestuia, care se face
+                        cu ajutorul functiei ht_put.
+    *server_remove - eliminarea unui produs dintr-un server reprezinta
+                        stergerea din hashtable-ul aferent acestuia perechea
+                        key-value, ce se realizeaza in functia ht_remove_entry.
+    *server_retrieve - obtinerea denumirii produsului reprezinta gasirea 
+                        valorii corespunzatoare cheii key data ca parametru
+                        in hashtable-ul serverului apelat. Aceasta operatie
+                        se realizeaza cu ajutorul functiei ht_get.
+    *server_free - elimiberarea memoriei unui server. Eliberarea memoriei
+                    alocata pentru hashtable se face cu ajutorul functiei
+                    ht_free. Structura de tip server_info este alocata static,
+                    asadar nu trebuie dat free la memoria acesteia.
+
+Implementare functii din "load_balancer.c":
+    Pentru toate ce urmeaza, m-am folosit de functii implementate 
+        in "LinkedList.c" si in "server.c".
+
+    *init_load_balancer - initializarea si alocarea memoriei pentru intreg load
+                            balancer-ul. Pentru hashring am folosit functia de
+                            initializare pentru liste ll_create. Pentru arrayul
+                            de pointeri am folosit calloc pentru a-i seta pe
+                            toti pe NULL.
+    *loader_retrieve - am parcurs lista pentru a gasi serverul in care trebuie
+                        cautata cheia key, am atribuit variabilei server_id
+                        valoarea id-ului gasit, in functie de caz, pentru a
+                        putea fi vizibila in main, iar apoi am returnat
+                        apelul functiei server_retrieve.
+    *loader_store - am gasit serverul pe care trebuie stocat produsul, apoi
+                        am adaugat in hashtable-ul acestuia perechea key-value
+                        folosind functia server_store.
+    *loader_add_server - am initializat un nou server cu id-ul si hashul
+                         acestuia si l-am adaugat in array-ul de servere pe
+                         pozitia corespunzatoare id-ului sau. Apoi am luat un
+                         for care are 3 iteratii, pentru a pune toate cele trei
+                         elemente pe hashring, ordonate dupa hash. De fiecare
+                         data, am retinut si nodul anterior(prev), nemaiputand
+                         sa ma intorc deoarece lista simplu-inlantuita. Serverele
+                         le adaug in lista la final, dupa ce redistribui elementele,
+                         dupa caz. Redistribuirea produselor se face cu ajutorul functiei
+                         "redistribution_add_server" implementata in
+                         "redistribution.c". Pentru cazul in care se adauga
+                         doua replici una dupa cealalta, doar se introduce nodul
+                         in lista, fara a se face redistribuirea, deoarece s-ar
+                         face verificari si iteratii fara sens. Am verificat
+                         cazurile speciale, cand introducerea in lista se face
+                         pe prima sau ultima pozitie.
+    *loader_remove_server - la fel ca la adaugare, am folosit un for cu trei
+                         iteratii, stiind ca trebuie sa elimin toate aparitiile
+                         serverului in hashring. Am retinut si aici un prev
+                         pentru a sti care produse se vor redistribui. Am cautat
+                         serverul al carui id este egal cu cel cerut spre eliminare.
+                         Redistribuirea produselor se face cu ajutorul functiei
+                         "redistribution_remove_server" implementata in
+                         "redistribution.c". Daca in hashring exista 2 noduri
+                         consecutive ale caror id-uri sunt egale, doar se sterge
+                         prima aparitie, fara a se face redistribuirea. Am tratat
+                         separat cazurile in care se sterge primul sau ultimul
+                         nod din hashring. La final am eliminat nodul din lista,
+                         i-am eliberat memoria si am setat pointerul corespunzator
+                         din array-ul de servere pe NULL.
+    *loader_free_memory - elibereaza memoria alocata pentru serverele carora
+                            nu le-a fost eliberata memoria la finalul executiei
+                            programului, a hashringului folosind functia ll_free,
+                            iar apoi a intregii structuri.
+
+
+
+
